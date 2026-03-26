@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>戦略アーキテクト ハブ - 社内ポータル</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #FFFFFF;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        #root {
+            width: 1280px;
+            height: 720px;
+            transform-origin: center center;
+            flex-shrink: 0;
+            position: absolute;
+        }
+
+        .canvas-bg {
+            width: 1280px;
+            height: 720px;
+            background-color: #FFFFFF;
+            background-image: radial-gradient(#EAEAEA 1.5px, transparent 0);
+            background-size: 24px 24px;
+            display: flex;
+            flex-direction: column;
+            border: 4px solid #FFDD33;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* --- Pixel-Perfect Text Stabilization --- */
+        .sharp-text {
+            -webkit-font-smoothing: antialiased;
+            backface-visibility: hidden;
+            display: block;
+            transform: none !important;
+            position: relative;
+            z-index: 50;
+        }
+
+        .miro-header {
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: -0.02em;
+        }
+
+        .miro-highlight {
+            background-color: #FFDD33;
+            padding: 0 12px;
+            border-radius: 8px;
+            display: inline-block;
+            box-shadow: 4px 4px 0px #1C1C1E;
+            color: #1C1C1E;
+        }
+
+        .cool-highlight {
+            background-color: #1C1C1E;
+            color: #FFDD33;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 10px;
+        }
+
+        /* Card Interactions */
+        .card-container {
+            background-color: #FFFFFF;
+            border: 4px solid #1C1C1E;
+            position: relative;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .card-container:hover {
+            transform: translateY(-8px);
+            box-shadow: 12px 12px 0px 0px #1C1C1E;
+        }
+
+        /* Flyout Animation */
+        .flyout-panel {
+            box-shadow: -20px 0px 50px rgba(0,0,0,0.2);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const useAutoScaler = () => {
+            useEffect(() => {
+                const scaler = () => {
+                    const root = document.getElementById('root');
+                    if (root) {
+                        const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+                        root.style.transform = `scale(${scale})`;
+                    }
+                };
+                window.addEventListener('resize', scaler);
+                scaler();
+                return () => window.removeEventListener('resize', scaler);
+            }, []);
+        };
+
+        const LIFECYCLE_DATA = [
+            {
+                id: 1,
+                phase: "PRE-SALE",
+                title: "ディスカバリー & スコーピング",
+                owner: "CSM & AE",
+                color: "#47D1C4",
+                summary: "アカウントの評価（年間消費額40万ドル未満）と、ROIおよび変革スピードの明確化。",
+                icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
+                playbook: {
+                    objective: "定期的なニーズや構造的な変化に基づきアカウントを評価。MOSTを基礎サービスとして位置づける。",
+                    actions: [
+                        "ビジネス目標の明確化: デジタルトランスフォーメーション、M&A、ツールの最新化など。",
+                        "摩擦の診断: 手動での同期、ボードの乱立、ツールの不均等な導入。",
+                        "症状を成果に変換: (例: 「10のスクワッド全体でアジャイルを標準化する」)。",
+                        "セグメントの確認: 主にエンタープライズで消費額40万ドル未満。"
+                    ],
+                    mechanics: [
+                        { label: "ターゲット", value: "Enterprise <$400k" },
+                        { label: "価格モデル", value: "$60,000 / 240時間 ARR" },
+                        { label: "社内目標", value: "クォータ達成イベント" }
+                    ],
+                    proTip: "「統合の負債」に耳を傾けること。JiraやAzure DevOpsを使用している場合、MOSTはその同期ロジックを整理するための主要なエンジンとなります。"
+                }
+            },
+            {
+                id: 2,
+                phase: "TRANSITION",
+                title: "ハンドオーバー & ブループリント",
+                owner: "Sales → ProServ",
+                color: "#867AFF",
+                summary: "アクティベーション後の社内引き継ぎ。PSはMOSTブループリントを構築します。",
+                icon: "M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7z M9 4v13 M15 7v13",
+                playbook: {
+                    objective: "コンテキストの移行を確実に行い、すべての成果物と履歴の単一の情報源を確立する。",
+                    actions: [
+                        "ハンドオーバーの促進: ディスカバリーのメモやROIのブロッカーをアサインされたPS専門家と共有する。",
+                        "MOSTブループリントへのアクセス: 顧客のキックオフ前にアーキテクチャを確認する。",
+                        "ベースラインの監査: 優先事項と成功基準のセクションが事前に入力されていることを確認する。"
+                    ],
+                    mechanics: [
+                        { label: "トリガー", value: "Salesforce 案件有効化" },
+                        { label: "成果物", value: "Miro MOST ブループリント" },
+                        { label: "構造", value: "標準化された方法論" }
+                    ],
+                    proTip: "ブループリントが今後の拠点です。ステータス資料を個別に送付するのをやめ、毎月の定例にはブループリントのリンクを共有しましょう。"
+                }
+            },
+            {
+                id: 3,
+                phase: "POST-SALE",
+                title: "プログラム・キックオフ",
+                owner: "CSM",
+                color: "#FFDD33",
+                summary: "顧客の意識を「時間を買う」ことから「成果を出す」ことへ移行させます。",
+                icon: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2",
+                playbook: {
+                    objective: "CSMは戦略アーキテクトとして機能。「何」と「なぜ」を定義し、PSが「どうやって」を担当する。",
+                    actions: [
+                        "キックオフの主導: 専門家プールモデルと週最大15時間のペース配分について認識を合わせる。",
+                        "依頼者の制限: 時間を消費できる事前承認済みの窓口担当者を最大3名特定する。",
+                        "バックログの確立: ワークストリームに優先順位をつけ、成功基準を文書化する。",
+                        "期待値の設定: 未使用時間はMiroの会計四半期開始時にリセットされることを念押しする。"
+                    ],
+                    mechanics: [
+                        { label: "四半期枠", value: "60時間 (会計カレンダー)" },
+                        { label: "週間上限", value: "最大 15時間" },
+                        { label: "最小単位", value: "1案件につき 4時間" }
+                    ],
+                    proTip: "最初の1ヶ月で「Jiraの整理」や「テンプレートの標準化」などの簡単な成功（Easy Win）を選び、早期に勢いをつけましょう。"
+                }
+            },
+            {
+                id: 4,
+                phase: "EXECUTION",
+                title: "ワークインテーク開始",
+                owner: "CSM",
+                color: "#FF8CDE",
+                summary: "少なくとも最初の四半期(60時間)の作業範囲をPSリソースと共に策定します。",
+                icon: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+                playbook: {
+                    objective: "アサインの遅延やリソースのミスマッチを最小限に抑えるため、質の高い案件受付を維持する。",
+                    actions: [
+                        "メインの受付: Salesforceで『MOST Engagement Case』を必ずアカウントレベルで提出する。",
+                        "スコーピング詳細: すでに完了しているディスカバリー情報を提供する。見積もり時間枠を確認する。",
+                        "受付基準: 期待される成果、必要なMiro機能、ドメイン専門知識、タイミングなどの詳細を含める。",
+                        "ケースの品質: 具体的なビジネス目標、問題のステートメント、測定可能な成功指標を捉える。"
+                    ],
+                    mechanics: [
+                        { label: "受付経路", value: "Salesforce (メイン)" },
+                        { label: "確認 SLA", value: "24 営業時間" },
+                        { label: "割当 SLA", value: "5 営業日" }
+                    ],
+                    proTip: "具体性が時間を節約します。リクエストをアカウントレベルに紐づけることで、異なるサブスクリプションサイクル間でも過去のコンテキストが保持されます。"
+                }
+            },
+            {
+                id: 5,
+                phase: "STRATEGY",
+                title: "レビュー & ピボット",
+                owner: "CSM & PS",
+                color: "#2AC7FF",
+                summary: "インパクトを測定し、残りの時間を高価値な戦略的作業へと振り向けます。",
+                icon: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z",
+                playbook: {
+                    objective: "90日ごとに戦略的優先順位を再設定する。余った時間を高価値な環境クリーンアップに振り向ける。",
+                    actions: [
+                        "戦略レビューの主導: 過去の成果を評価し、Q2以降の優先事項を再設定する。",
+                        "余剰時間の活用: アカウント構造のレビューやチームの統合を提案する。",
+                        "拡張エンジンの特定: Advanced AIやInsightsのニーズを特定し、アップセルの準備をする。",
+                        "更新の準備: 年間更新に向けたビジネスケース（投資対効果）を構築する。"
+                    ],
+                    mechanics: [
+                        { label: "成功指標", value: "累積稼働率 70%以上" },
+                        { label: "追加時間", value: "20時間ブロック追加" },
+                        { label: "目標点", value: "年間2ブロック以上の追加" }
+                    ],
+                    proTip: "環境の衛生管理（クリーンアップ）は最も価値の高い穴埋め作業です。バックログが少ない場合は監査を提案しましょう。"
+                }
+            }
+        ];
+
+        const App = () => {
+            useAutoScaler();
+            const [selectedStep, setSelectedStep] = useState(null);
+
+            const openFlyout = (step) => setSelectedStep(step);
+            const closeFlyout = () => setSelectedStep(null);
+
+            return (
+                <div className="canvas-bg select-none">
+                    
+                    {/* Header */}
+                    <div className="h-[140px] px-12 flex items-center justify-between relative z-10 border-b-4 border-[#1C1C1E] bg-white shrink-0">
+                        <div className="flex flex-col sharp-text">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="bg-[#1C1C1E] text-[#FFDD33] px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] rounded">社内コマンドセンター</span>
+                                <div className="h-[2px] w-12 bg-[#1C1C1E]/20"></div>
+                            </div>
+                            <h1 className="text-[42px] miro-header text-[#1C1C1E] leading-none">
+                                戦略アーキテクト <span className="miro-highlight">ハブ</span>
+                            </h1>
+                        </div>
+                        
+                        <div className="flex gap-8 items-center sharp-text">
+                            <div className="text-right border-r-2 border-[#1C1C1E]/10 pr-8">
+                                <p className="text-[11px] font-black uppercase text-black/40 mb-1">稼働率目標</p>
+                                <p className="text-[32px] font-black italic text-[#1C1C1E] leading-none tracking-tighter">70%+</p>
+                            </div>
+                            <div className="text-right border-r-2 border-[#1C1C1E]/10 pr-8">
+                                <p className="text-[11px] font-black uppercase text-black/40 mb-1">週間上限</p>
+                                <p className="text-[32px] font-black italic text-[#1C1C1E] leading-none tracking-tighter">15H</p>
+                            </div>
+                            <div className="bg-[#1C1C1E] text-white p-4 rounded-xl shadow-[4px_4px_0px_#FFDD33]">
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-1 text-[#FFDD33]">更新日</p>
+                                <p className="text-[16px] font-black italic leading-none">2026年3月26日</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Horizontal Track */}
+                    <div className="flex-1 px-12 py-10 flex gap-6 overflow-visible relative z-0">
+                        {LIFECYCLE_DATA.map((step) => (
+                            <div 
+                                key={step.id} 
+                                className="card-container flex-1 rounded-3xl flex flex-col overflow-hidden group"
+                                onClick={() => openFlyout(step)}
+                            >
+                                <div className="h-4 w-full" style={{ backgroundColor: step.color }}></div>
+                                <div className="p-6 flex-1 flex flex-col relative">
+                                    <div className="absolute top-6 right-6 opacity-10">
+                                        <span className="text-6xl font-black italic tracking-tighter">0{step.id}</span>
+                                    </div>
+                                    
+                                    <div className="w-12 h-12 rounded-xl border-2 border-[#1C1C1E] flex items-center justify-center mb-6 bg-white shadow-[2px_2px_0px_#1C1C1E] group-hover:scale-110 transition-transform">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d={step.icon} />
+                                        </svg>
+                                    </div>
+                                    
+                                    <div className="sharp-text flex-1">
+                                        <span className="cool-highlight mb-3">{step.phase}</span>
+                                        <h3 className="text-[22px] font-black text-[#1C1C1E] leading-tight mb-3">
+                                            {step.title}
+                                        </h3>
+                                        <p className="text-[13px] font-bold text-black/60 leading-snug">
+                                            {step.summary}
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-6 pt-4 border-t-2 border-dashed border-black/10 flex justify-between items-center sharp-text">
+                                        <div>
+                                            <p className="text-[10px] font-black text-black/40 uppercase mb-0.5">オーナー</p>
+                                            <p className="text-[12px] font-black text-[#1C1C1E]">{step.owner}</p>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-[#1C1C1E]/5 flex items-center justify-center group-hover:bg-[#FFDD33] transition-colors">
+                                            <span className="text-[#1C1C1E] text-lg font-bold">→</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="absolute bottom-6 left-12 right-12 flex justify-between items-center opacity-40 pointer-events-none sharp-text">
+                        <div className="text-[#1C1C1E] font-black uppercase text-[12px] tracking-[0.2em]">Strategy • Execution • Delivery</div>
+                        <div className="text-[#1C1C1E] font-black uppercase text-[12px] tracking-[0.2em]">© FY26 Miro ProServ</div>
+                    </div>
+
+                    {/* Background Graphic */}
+                    <div className="absolute -bottom-16 -right-10 text-[250px] font-[900] italic uppercase text-[#1C1C1E]/[0.02] tracking-tighter pointer-events-none">
+                        MOST
+                    </div>
+
+                    {/* Flyout Modal */}
+                    <div 
+                        className={`absolute inset-0 z-[100] transition-opacity duration-300 ${selectedStep ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                        style={{ backgroundColor: 'rgba(28, 28, 30, 0.5)', backdropFilter: 'blur(4px)' }}
+                        onClick={closeFlyout}
+                    >
+                        <div 
+                            className={`flyout-panel absolute top-0 right-0 h-full w-[650px] bg-white border-l-8 border-[#1C1C1E] p-12 overflow-y-auto flex flex-col`}
+                            style={{ transform: selectedStep ? 'translateX(0)' : 'translateX(100%)' }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {selectedStep && (
+                                <div className="animate-fade flex-1 flex flex-col sharp-text">
+                                    <div className="flex justify-between items-start mb-10">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-20 h-20 rounded-2xl flex items-center justify-center border-4 border-[#1C1C1E] shadow-[6px_6px_0px_#1C1C1E]" style={{ backgroundColor: selectedStep.color }}>
+                                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d={selectedStep.icon} />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <span className="cool-highlight mb-2">Stage 0{selectedStep.id}</span>
+                                                <h2 className="miro-header text-[32px] text-[#1C1C1E] leading-tight">{selectedStep.title}</h2>
+                                            </div>
+                                        </div>
+                                        <button onClick={closeFlyout} className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center hover:bg-black/10 transition-colors">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-[#1C1C1E] text-white p-8 rounded-3xl shadow-[8px_8px_0px_#FFDD33] mb-10 relative">
+                                        <h4 className="text-[#FFDD33] font-black uppercase text-[11px] tracking-[0.3em] mb-3">ミッション概要</h4>
+                                        <p className="text-[16px] font-bold leading-relaxed">「{selectedStep.playbook.objective}」</p>
+                                    </div>
+
+                                    <div className="space-y-10 flex-1">
+                                        <section>
+                                            <h4 className="text-[14px] font-black uppercase text-black/40 mb-5 border-b-2 border-black/10 pb-2">アクション・チェックリスト</h4>
+                                            <ul className="space-y-4">
+                                                {selectedStep.playbook.actions.map((action, i) => (
+                                                    <li key={i} className="flex gap-4">
+                                                        <div className="w-6 h-6 rounded-md bg-[#FFDD33] text-[#1C1C1E] flex items-center justify-center shrink-0 mt-0.5 text-[12px] font-black">✓</div>
+                                                        <p className="text-[14px] font-bold text-[#1C1C1E] leading-relaxed">{action}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </section>
+
+                                        <section className="bg-black/5 p-6 rounded-2xl">
+                                            <h4 className="text-[12px] font-black uppercase text-black/40 mb-4">内部メカニクス / 指標</h4>
+                                            <div className="grid grid-cols-1 gap-4">
+                                                {selectedStep.playbook.mechanics.map((m, i) => (
+                                                    <div key={i} className="flex justify-between items-center border-b border-black/10 pb-2 last:border-0 last:pb-0">
+                                                        <span className="text-[13px] font-black text-black/50">{m.label}</span>
+                                                        <span className="text-[14px] font-black text-[#1C1C1E]">{m.value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+
+                                        <section className="p-6 border-4 border-dashed border-[#867AFF] rounded-2xl bg-[#867AFF]/5 relative">
+                                            <div className="absolute -top-4 left-6 bg-[#867AFF] text-white px-3 py-1 text-[10px] font-black uppercase rounded shadow-sm">Pro Tip</div>
+                                            <p className="text-[14px] font-bold text-[#1C1C1E] leading-relaxed mt-2">
+                                                {selectedStep.playbook.proTip}
+                                            </p>
+                                        </section>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
