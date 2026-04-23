@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miro Innovation Frameworks - JP</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #FFFFFF;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        #root {
+            width: 1280px;
+            height: 720px;
+            transform-origin: center center;
+            flex-shrink: 0;
+            position: absolute;
+        }
+
+        .canvas-bg {
+            width: 1280px;
+            height: 720px;
+            background-color: #FFFFFF;
+            background-image: radial-gradient(#EAEAEA 1.5px, transparent 0);
+            background-size: 24px 24px;
+            display: flex;
+            flex-direction: column;
+            border: 4px solid #FFDD33;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Pixel-Perfect Text Stabilization */
+        .sharp-text {
+            -webkit-font-smoothing: antialiased;
+            backface-visibility: hidden;
+            display: block;
+            transform: none !important;
+            position: relative;
+            z-index: 50;
+        }
+
+        .miro-highlight {
+            background-color: #FFDD33;
+            padding: 0 12px;
+            border-radius: 8px;
+            display: inline-block;
+            box-shadow: 4px 4px 0px #1C1C1E;
+        }
+
+        .card-container {
+            background-color: #FFFFFF;
+            border: 4px solid #1C1C1E;
+            box-shadow: 4px 4px 0px 0px #1C1C1E;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+        }
+        
+        .card-container:hover {
+            transform: translateY(-4px);
+            box-shadow: 8px 8px 0px 0px #1C1C1E;
+        }
+
+        .animate-enter {
+            animation: enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes enter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Hide generic scrollbars but allow internal overflow if needed */
+        ::-webkit-scrollbar { display: none; }
+        * { scrollbar-width: none; -ms-overflow-style: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const BRAND = {
+            yellow: '#FFDD33',
+            black: '#1C1C1E',
+            gray: '#B3B3B3',
+            cyan: '#47D1C4',
+            purple: '#867AFF',
+            pink: '#FF8CDE',
+            blue: '#2AC7FF'
+        };
+
+        const ICONS = {
+            Technical: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+            Product: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
+            Strategy: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
+            AI: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>,
+            Migration: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11a9 9 0 0 1 18 0" /><path d="M12 11V3" /><path d="M7 11V6" /><path d="M17 11V6" /><path d="M3 18h18" /><path d="M3 14h18" /></svg>,
+            Enterprise: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        };
+
+        const FRAMEWORKS_DATA = [
+            {
+                id: 1,
+                title: "技術基盤",
+                subtitle: "とデータガバナンス",
+                color: BRAND.cyan,
+                icon: "Technical",
+                focus: "ツールの乱立を防ぎ、コラボレーションを構造化し、複雑なMiro環境全体のガバナンスを向上させます。",
+                bestFor: "新規または拡大中の導入環境を標準化するIT、セキュリティ、運用リーダー。",
+                impactVision: "オペレーショナルリスクを最大40%削減する、拡張性の高いコラボレーション基盤を確立します。",
+                outcomes: [
+                    { name: "統合ワークスペース", impact: "シャドーITを排除し、統一された環境で管理負担を軽減。" },
+                    { name: "持続可能なガバナンス", impact: "組織データを保護する明確なルールと自動化プロセスを確立。" },
+                    { name: "運用の標準化", impact: "部門横断ワークフロー向けに再利用可能なテンプレートを展開。" },
+                    { name: "コンテキストスイッチの削減", impact: "Confluence等との統合により、単一フローでの作業を維持。" }
+                ],
+                workstreams: [
+                    { name: "ワークスペースの統合と整理", hrs: 45 },
+                    { name: "ガバナンス・フレームワーク策定", hrs: 30 },
+                    { name: "プロセス用カスタムテンプレート", hrs: 50 },
+                    { name: "各種ツール連携設定", hrs: 35 },
+                    { name: "チェンジマネジメントと展開", hrs: 30 }
+                ]
+            },
+            {
+                id: 2,
+                title: "プロダクト開発",
+                subtitle: "の最適化",
+                color: BRAND.purple,
+                icon: "Product",
+                focus: "エンジニアリングの速度向上、アジャイルセレモニーの標準化、部門間の可視性強化。",
+                bestFor: "アジャイル実践を合理化し、開発スループットを向上させたい開発・製品リーダー。",
+                impactVision: "チケット管理や計画セレモニーを自動化し、デリバリーサイクルと機能開発速度を加速させます。",
+                outcomes: [
+                    { name: "Jira / Azure DevOps連携", impact: "手動更新を排除し、正確な同期で計画のズレを防止。" },
+                    { name: "アジャイルセレモニーの統一", impact: "標準化されたボードを用いた予測可能な振り返りと計画。" },
+                    { name: "AIによるインサイト抽出", impact: "ブロッカーやリスクの自動抽出による報告業務の効率化。" },
+                    { name: "アーキテクチャの知見管理", impact: "システム図の一元化によるオンボーディングと監査の迅速化。" }
+                ],
+                workstreams: [
+                    { name: "Jira/Azure DevOps連携の整理", hrs: 35 },
+                    { name: "システム構成図のライブラリ化", hrs: 55 },
+                    { name: "アジャイルセレモニーの統一", hrs: 40 },
+                    { name: "AIサイドキックの導入", hrs: 30 },
+                    { name: "PIプランニングのサポート", hrs: 60 }
+                ]
+            },
+            {
+                id: 3,
+                title: "プロジェクト管理",
+                subtitle: "と戦略実行",
+                color: BRAND.pink,
+                icon: "Strategy",
+                focus: "優先順位付けの強化、ポートフォリオ全体の可視性向上、戦略的イニシアチブの一貫した実行。",
+                bestFor: "複雑なポートフォリオの単一の信頼できる情報源(SSOT)を必要とするPMO・戦略リーダー。",
+                impactVision: "すべての戦略的イニシアチブをリアルタイムで可視化し、企業戦略と日々の業務を直結させます。",
+                outcomes: [
+                    { name: "ポートフォリオのSSOT化", impact: "全イニシアチブと進捗を1か所で追跡し、分断された報告を排除。" },
+                    { name: "戦略ロードマップの一貫性", impact: "全部門での事業計画を標準化し、完全なアラインメントを実現。" },
+                    { name: "ステータス報告の自動化", impact: "AIによる要約生成を活用し、手作業による報告時間を削減。" },
+                    { name: "経営層向けのリアルタイム可視化", impact: "優先事項やリソース要件を即座に把握できるダッシュボード。" }
+                ],
+                workstreams: [
+                    { name: "ポートフォリオ管理ボード設計", hrs: 40 },
+                    { name: "ロードマップ用テンプレート作成", hrs: 30 },
+                    { name: "AIを活用した報告フロー構築", hrs: 35 },
+                    { name: "経営層向けダッシュボード作成", hrs: 40 },
+                    { name: "月次ポートフォリオ運用支援", hrs: 70 }
+                ]
+            },
+            {
+                id: 4,
+                title: "AIファースト",
+                subtitle: "のワークフロー加速",
+                color: BRAND.yellow,
+                icon: "AI",
+                focus: "AIの安全な導入、ワークフローの自動化、および高ROIなユースケースの特定。",
+                bestFor: "AI機能を活用して効率化を推進することを目指す、イノベーションおよび部門リーダー。",
+                impactVision: "AIをコラボレーション・ワークフローに直接組み込み、チームの作業速度を30%向上させます。",
+                outcomes: [
+                    { name: "明確なAI導入ロードマップ", impact: "即効性とROIが最も高いAI活用ワークフローを特定。" },
+                    { name: "要約・コンテンツ生成の自動化", impact: "AIサイドキックが大量の情報の要約やリサーチタスクを処理。" },
+                    { name: "AI搭載テンプレートの活用", impact: "反復作業をスピードアップする組み込みのAIアクション。" },
+                    { name: "安全で確実な利用の浸透", impact: "社内基準に従ってAIを安全かつ一貫して使用するための教育。" }
+                ],
+                workstreams: [
+                    { name: "AI準備状況のアセスメント", hrs: 20 },
+                    { name: "主要ワークフロー用Bot構築", hrs: 50 },
+                    { name: "AIテンプレートの作成", hrs: 40 },
+                    { name: "Jira/SlackとのAIフロー統合", hrs: 45 },
+                    { name: "AI活用イネーブルメント", hrs: 35 }
+                ]
+            },
+            {
+                id: 5,
+                title: "ツール移行",
+                subtitle: "と新しい働き方",
+                color: BRAND.blue,
+                icon: "Migration",
+                focus: "他社プラットフォームからの移行サポートと、長期的な最適化を組み合わせた専門的支援。",
+                bestFor: "プラットフォームの移行を管理し、新たな標準を推進するITおよびビジネスリーダー。",
+                impactVision: "移行リスクを最小限に抑えつつ、ワークフローを最新化し、コスト削減を実現します。",
+                outcomes: [
+                    { name: "低リスクな移行アーキテクチャ", impact: "移行開始前に安全性を担保するワークスペースとガバナンスを確立。" },
+                    { name: "確実なコンテンツ移行", impact: "優先度の高いボードやフローを忠実に移行し、品質を確認。" },
+                    { name: "最新かつスケーラブルなフロー", impact: "Miroのネイティブ機能を最大限活用するために既存ボードを再設計。" },
+                    { name: "スムーズな導入と定着", impact: "チャンピオンプログラムにより、新しい環境での早期の生産性向上を実現。" }
+                ],
+                workstreams: [
+                    { name: "移行アセスメントと設計", hrs: 40 },
+                    { name: "コンテンツ移行サポート", hrs: 60 },
+                    { name: "重要ボードの再構築・最適化", hrs: 55 },
+                    { name: "主要インテグレーション設定", hrs: 30 },
+                    { name: "定着化モニタリングと改善", hrs: 35 }
+                ]
+            },
+            {
+                id: 6,
+                title: "エンタープライズ統合",
+                subtitle: "とモダンコラボレーション",
+                color: BRAND.cyan,
+                icon: "Enterprise",
+                focus: "複数のMiroチームの統合、スケーラブルな統合基盤の確立、構造化された変革プログラムの推進。",
+                bestFor: "大規模で複雑なマルチワークスペース環境を管理するグローバルITリーダー。",
+                impactVision: "グローバルな協業エコシステムを統合し、シャドーITを排除してツールの投資効果を最大化します。",
+                outcomes: [
+                    { name: "単一で安全なMiroエコシステム", impact: "管理負担を排除し、一貫性のある構造化されたワークスペースを提供。" },
+                    { name: "持続可能な管理者モデル", impact: "環境の乱立を防ぐための明確なオーナーシップと権限の定義。" },
+                    { name: "再利用可能な標準ライブラリ", impact: "カスタムブループリント等を通じた組織的ベストプラクティスの展開。" },
+                    { name: "グローバル全体での可視性", impact: "手動報告なしで、全チームの優先事項と実行状況を即座に把握。" }
+                ],
+                workstreams: [
+                    { name: "環境の統合プロセス", hrs: 45 },
+                    { name: "ID・アクセス・管理者モデル構築", hrs: 20 },
+                    { name: "Microsoft/Atlassianツール統合", hrs: 45 },
+                    { name: "ユースケース設計とカスタム化", hrs: 80 },
+                    { name: "イネーブルメントとチェンジマネジメント", hrs: 50 }
+                ]
+            }
+        ];
+
+        const useAutoScaler = () => {
+            useEffect(() => {
+                const scaler = () => {
+                    const root = document.getElementById('root');
+                    if (root) {
+                        const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+                        root.style.transform = `scale(${scale})`;
+                    }
+                };
+                window.addEventListener('resize', scaler);
+                scaler();
+                return () => window.removeEventListener('resize', scaler);
+            }, []);
+        };
+
+        const GridView = ({ onSelect }) => (
+            <div className="flex-1 px-12 pb-10 flex flex-col justify-center animate-enter">
+                <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-[#1C1C1E] text-[#FFDD33] px-3 py-1 text-[11px] font-black uppercase tracking-[0.3em] rounded-md shadow-sm">
+                        MOST INNOVATION FRAMEWORKS
+                    </span>
+                    <div className="h-[2px] flex-1 bg-[#1C1C1E]/10"></div>
+                </div>
+                <h1 className="text-[48px] font-[900] italic uppercase leading-[1.1] text-[#1C1C1E] tracking-tighter mb-8 sharp-text">
+                    アドホックな作業から、<br/>
+                    <span className="miro-highlight">構造化されたインパクトへ</span>
+                </h1>
+                
+                <div className="grid grid-cols-3 gap-6">
+                    {FRAMEWORKS_DATA.map((plan) => (
+                        <div key={plan.id} onClick={() => onSelect(plan)} className="card-container rounded-[2rem] p-8 flex flex-col h-[260px] relative overflow-hidden group">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="w-14 h-14 rounded-xl flex items-center justify-center border-2 border-[#1C1C1E] shadow-[3px_3px_0px_#1C1C1E]" style={{ backgroundColor: plan.color }}>
+                                    <div className="w-7 h-7 text-[#1C1C1E]">{ICONS[plan.icon]}</div>
+                                </div>
+                                <span className="text-[11px] font-black text-[#1C1C1E]/30 uppercase tracking-[0.2em] italic">Blueprint 0{plan.id}</span>
+                            </div>
+                            <h3 className="text-[22px] font-[900] italic uppercase leading-[1.1] text-[#1C1C1E] tracking-tight mb-3 sharp-text">
+                                {plan.title}<br/>{plan.subtitle}
+                            </h3>
+                            <p className="text-[13px] font-bold text-[#1C1C1E]/60 leading-tight flex-1 line-clamp-3">
+                                {plan.focus}
+                            </p>
+                            <div className="flex items-center gap-2 text-[#1C1C1E] font-black uppercase text-[11px] tracking-widest group-hover:text-[#867AFF] transition-colors mt-auto">
+                                VIEW IMPACT
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        const DetailView = ({ plan, onBack }) => {
+            const totalHrs = plan.workstreams.reduce((acc, curr) => acc + curr.hrs, 0);
+
+            return (
+                <div className="flex-1 px-10 pt-8 pb-8 flex flex-col h-full animate-enter">
+                    {/* Header Area */}
+                    <div className="flex justify-between items-center mb-6 shrink-0">
+                        <button onClick={onBack} className="bg-[#1C1C1E] text-white px-6 py-2 rounded-xl text-[12px] font-black italic uppercase tracking-widest flex items-center gap-3 shadow-[4px_4px_0px_#FFDD33] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#FFDD33] transition-all">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            BACK
+                        </button>
+                        <div className="text-[12px] font-black italic text-[#1C1C1E]/40 tracking-widest">
+                            BLUEPRINT 0{plan.id}
+                        </div>
+                    </div>
+
+                    {/* Main Dashboard Grid */}
+                    <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+                        
+                        {/* Left Column: Vision & Target */}
+                        <div className="col-span-4 flex flex-col gap-6 min-h-0">
+                            <div className="bg-[#1C1C1E] text-white p-8 rounded-[2rem] shadow-[8px_8px_0px_#FFDD33] flex-1 flex flex-col justify-center relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 text-[120px] font-[900] italic opacity-[0.03] select-none pointer-events-none leading-none text-white">
+                                    0{plan.id}
+                                </div>
+                                <div className="w-14 h-14 rounded-xl flex items-center justify-center border-2 border-white/20 mb-6 relative z-10" style={{ backgroundColor: plan.color }}>
+                                    <div className="w-7 h-7 text-[#1C1C1E]">{ICONS[plan.icon]}</div>
+                                </div>
+                                <h2 className="text-[32px] font-[900] italic leading-[1.1] tracking-tight mb-6 relative z-10 sharp-text">
+                                    {plan.title}<br/>
+                                    <span className="text-white/50 text-[24px]">{plan.subtitle}</span>
+                                </h2>
+                                <span className="text-[#FFDD33] font-black uppercase text-[10px] tracking-[0.3em] mb-2 block relative z-10">IMPACT VISION</span>
+                                <p className="text-[16px] font-bold leading-relaxed text-white/90 relative z-10">
+                                    {plan.impactVision}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Middle Column: Outcomes */}
+                        <div className="col-span-4 bg-white border-4 border-[#1C1C1E] rounded-[2rem] p-8 shadow-[8px_8px_0px_0px_#47D1C4] flex flex-col min-h-0">
+                            <div className="flex items-center gap-3 mb-6 shrink-0">
+                                <h3 className="text-[20px] font-[900] italic uppercase text-[#1C1C1E] tracking-tighter">主要な成果 (Outcomes)</h3>
+                                <div className="h-[2px] flex-1 bg-[#1C1C1E]/10"></div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                                {plan.outcomes.map((outcome, idx) => (
+                                    <div key={idx} className="flex gap-4 items-start group">
+                                        <div className="w-8 h-8 rounded-lg bg-[#FFDD33] border-2 border-[#1C1C1E] flex items-center justify-center shrink-0 mt-1 shadow-[2px_2px_0px_#1C1C1E]">
+                                            <span className="font-black text-[12px]">{idx + 1}</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[14px] font-[900] leading-tight mb-1 text-[#1C1C1E] sharp-text">
+                                                {outcome.name}
+                                            </h4>
+                                            <p className="text-[12px] font-bold text-[#1C1C1E]/60 leading-snug">
+                                                {outcome.impact}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-6 pt-4 border-t-2 border-[#1C1C1E]/10 shrink-0">
+                                <span className="text-[10px] font-black uppercase text-[#1C1C1E]/40 tracking-[0.2em] block mb-1">Target Leaders</span>
+                                <p className="text-[13px] font-bold text-[#1C1C1E] leading-tight">{plan.bestFor}</p>
+                            </div>
+                        </div>
+
+                        {/* Right Column: Workstreams */}
+                        <div className="col-span-4 bg-white border-4 border-[#1C1C1E] rounded-[2rem] p-8 shadow-[8px_8px_0px_0px_#867AFF] flex flex-col min-h-0">
+                            <div className="flex items-center gap-3 mb-6 shrink-0">
+                                <h3 className="text-[20px] font-[900] italic uppercase text-[#1C1C1E] tracking-tighter">ワークストリーム</h3>
+                                <div className="h-[2px] flex-1 bg-[#1C1C1E]/10"></div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                                {plan.workstreams.map((ws, idx) => (
+                                    <div key={idx} className="flex justify-between items-center gap-3 border-b-2 border-[#1C1C1E]/5 pb-3 last:border-0">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-[#1C1C1E]/30 shrink-0"></div>
+                                            <span className="text-[13px] font-bold tracking-tight leading-tight text-[#1C1C1E] sharp-text">{ws.name}</span>
+                                        </div>
+                                        <span className="text-[10px] font-black text-[#1C1C1E] bg-[#EAEAEA] px-2 py-1 rounded-md whitespace-nowrap">~{ws.hrs}h</span>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <div className="mt-auto pt-6 border-t-4 border-[#1C1C1E] shrink-0">
+                                <div className="flex items-end gap-2 text-[#1C1C1E]">
+                                    <span className="text-[48px] font-[900] italic leading-[0.7] tracking-tighter sharp-text">{totalHrs}</span>
+                                    <span className="text-[14px] font-black italic mb-0.5 uppercase">Estimated Hrs</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            useAutoScaler();
+            const [selectedPlan, setSelectedPlan] = useState(null);
+
+            return (
+                <div className="canvas-bg select-none">
+                    {selectedPlan ? (
+                        <DetailView plan={selectedPlan} onBack={() => setSelectedPlan(null)} />
+                    ) : (
+                        <GridView onSelect={setSelectedPlan} />
+                    )}
+
+                    {/* Footer / Watermark */}
+                    <div className="absolute bottom-6 left-12 right-12 flex justify-between items-center opacity-30 pointer-events-none sharp-text z-50">
+                        <div className="text-[#1C1C1E] font-black italic uppercase text-[11px] tracking-[0.2em]">Miro Professional Services</div>
+                        <div className="text-[#1C1C1E] font-black italic uppercase text-[11px] tracking-[0.2em]">© 2026 MIRO PROSERV JP</div>
+                    </div>
+                    <div className="absolute -bottom-10 -right-10 text-[220px] font-[900] italic uppercase text-[#1C1C1E]/[0.03] tracking-tighter pointer-events-none z-0">
+                        MIRO
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
