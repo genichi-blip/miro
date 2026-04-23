@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSM × PS 戦略: 責任分界マトリクス</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+            background-color: #F4F4F4;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #root {
+            width: 1280px;
+            height: 720px;
+            transform-origin: center center;
+            position: absolute;
+            flex-shrink: 0;
+        }
+
+        .canvas-bg {
+            width: 1280px;
+            height: 720px;
+            background-color: #FFFFFF;
+            background-image: radial-gradient(#EAEAEA 1.5px, transparent 0);
+            background-size: 24px 24px;
+            display: flex;
+            flex-direction: column; 
+            border: 4px solid #FFDD33;
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+        }
+
+        /* Pixel-Perfect Text Stabilization */
+        .sharp-text {
+            -webkit-font-smoothing: antialiased;
+            backface-visibility: hidden;
+            display: block;
+            transform: none !important;
+            position: relative;
+            z-index: 50; 
+        }
+
+        .miro-highlight {
+            background-color: #FFDD33;
+            padding: 0 12px;
+            border-radius: 8px;
+            display: inline-block;
+            box-shadow: 4px 4px 0px #1C1C1E;
+        }
+
+        .card-container {
+            background-color: #FFFFFF;
+            border: 3px solid #1C1C1E;
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.1s steps(2);
+            position: relative;
+        }
+
+        .vs-circle {
+            background: #1C1C1E;
+            color: #FFDD33;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 900;
+            font-style: italic;
+            border: 3px solid #FFFFFF;
+            z-index: 20;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .talk-track {
+            background-color: #1C1C1E;
+            color: #FFFFFF;
+            border-bottom-left-radius: 8px;
+        }
+
+        .role-pill {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 2px solid #1C1C1E;
+            display: inline-block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const useAutoScaler = () => {
+            useEffect(() => {
+                const scaler = () => {
+                    const root = document.getElementById('root');
+                    if (root) {
+                        const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+                        root.style.transform = `scale(${scale})`;
+                    }
+                };
+                window.addEventListener('resize', scaler);
+                scaler();
+                return () => window.removeEventListener('resize', scaler);
+            }, []);
+        };
+
+        const AccountabilityRow = ({ category, csmRole, csmTask, psRole, psTask }) => (
+            <div className="flex items-stretch gap-4 mb-3 relative">
+                <div className="w-[180px] flex items-center justify-end text-right pr-2">
+                    <h3 className="text-[13px] font-black italic uppercase tracking-wider text-[#1C1C1E]">{category}</h3>
+                </div>
+                
+                <div className="flex-1 card-container p-4 rounded-2xl border-l-[8px] border-l-[#FFDD33] shadow-[4px_4px_0px_rgba(28,28,30,0.05)] bg-white flex flex-col justify-center z-10">
+                    <div className="mb-2">
+                        <span className="role-pill bg-[#FFDD33] text-[#1C1C1E]">{csmRole}</span>
+                    </div>
+                    <p className="text-[12px] font-bold text-[#1C1C1E]/90 leading-relaxed">{csmTask}</p>
+                </div>
+
+                <div className="flex items-center justify-center w-8 relative">
+                    <div className="w-[2px] h-[calc(100%+12px)] bg-[#1C1C1E]/10 absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-0"></div>
+                    <div className="vs-circle w-7 h-7 text-[9px] relative z-10">VS</div>
+                </div>
+
+                <div className="flex-1 card-container p-4 rounded-2xl border-l-[8px] border-l-[#47D1C4] shadow-[4px_4px_0px_rgba(28,28,30,0.05)] bg-white flex flex-col justify-center z-10">
+                    <div className="mb-2">
+                        <span className="role-pill bg-[#47D1C4] text-[#1C1C1E]">{psRole}</span>
+                    </div>
+                    <p className="text-[12px] font-bold text-[#1C1C1E]/90 leading-relaxed">{psTask}</p>
+                </div>
+            </div>
+        );
+
+        const App = () => {
+            useAutoScaler();
+
+            const matrixData = [
+                {
+                    category: "アカウント戦略",
+                    csmRole: "オーナー",
+                    csmTask: "専任の戦略担当。Joint Success Plan（JSP）およびビジネス成果に責任を持ちます。定例会議を実施し、戦略的優先事項を常に把握します。",
+                    psRole: "コンサルタント",
+                    psTask: "戦略フレームワークがMiroのベストプラクティスや環境の長期的な健全性と一致するよう、技術的なインプットを提供します。"
+                },
+                {
+                    category: "MOST ロードマップ",
+                    csmRole: "アーキテクト",
+                    csmTask: "上位の優先事項を定義し、新規リクエストを受け付けます。定期的に認識合わせを行い、変化するニーズを吸い上げます。",
+                    psRole: "アドバイザー",
+                    psTask: "キックオフ・コールにて「第1四半期」の技術的フレームワーク構築を支援します。※このコール以外でPSから能動的なスコープ定義は行いません。"
+                },
+                {
+                    category: "リクエスト受付",
+                    csmRole: "リード",
+                    csmTask: "定期的な戦略すり合わせの結果に基づき、アカウントレベルでのすべてのサービスケースをSalesforceに起票・提出する責任を負います。",
+                    psRole: "サポート",
+                    psTask: "プールされた技術デリバリーの専門家が「100%作業開始できる」状態になるよう、要件の明確化とスコープ定義を支援します。"
+                },
+                {
+                    category: "利用時間トラッキング",
+                    csmRole: "コマーシャル責任者",
+                    csmTask: "契約更新およびビジネス面の健全性に責任を持ちます。定例会議で価値の実現状況を確認し、必要に応じて利用ペースを調整します。",
+                    psRole: "監視",
+                    psTask: "消費トレンドを監視し、利用率低下のリスクがある場合は、未着手プロジェクトの提案とともにプロアクティブにCSMチームへアラートを出します。"
+                },
+                {
+                    category: "プロジェクト納品",
+                    csmRole: "状況把握",
+                    csmTask: "関係性の価値向上とプラットフォームの定着化を推進するため、定期的なチェックインを通じてプロジェクト全体の進捗状況を把握します。",
+                    psRole: "実行責任",
+                    psTask: "デリバリーの品質を監督します。実際の構築作業および技術的な実装は、プールされた専門家チームによって行われます。"
+                }
+            ];
+
+            return (
+                <div className="canvas-bg select-none p-10 flex flex-col justify-between">
+                    {/* Header Section */}
+                    <div className="flex justify-between items-start mb-6 sharp-text shrink-0">
+                        <div className="pt-2">
+                            <div className="flex items-center gap-4 mb-3">
+                                <span className="bg-[#1C1C1E] text-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] rounded-md">社内戦略イネーブルメント</span>
+                            </div>
+                            <h1 className="text-[52px] font-[900] italic uppercase leading-[0.95] text-[#1C1C1E] tracking-tighter mb-3">
+                                <span className="miro-highlight">MOST</span> 役割・責任の分担
+                            </h1>
+                            <p className="text-[16px] font-bold text-[#1C1C1E]/50 italic">戦略的アカウンタビリティ・パートナーシップ</p>
+                        </div>
+                        
+                        <div className="flex gap-4">
+                            <div className="talk-track shadow-xl border-2 border-[#1C1C1E] w-[380px] p-5 rounded-3xl flex flex-col justify-center">
+                                <h5 className="text-[#FFDD33] font-black uppercase text-[10px] tracking-[0.2em] mb-2.5 italic">パートナーシップのメタファー</h5>
+                                <p className="text-[13px] font-bold leading-relaxed opacity-95">
+                                    「CSMは船の舵を取る『戦略アーキテクト』です。PSは『技術的な副操縦士』として、ルートの策定や実作業の遂行を支援し、利用時間が低下傾向にある場合はアラートを出します。」
+                                </p>
+                            </div>
+                            <div className="card-container p-4 rounded-3xl bg-white border-[#1C1C1E] border-[3px] text-center w-[160px] flex flex-col justify-center shadow-[6px_6px_0px_#1C1C1E]">
+                                <p className="text-[9px] font-black italic uppercase text-[#1C1C1E]/40 mb-1.5 tracking-[0.2em]">健全性のしきい値</p>
+                                <div className="text-[42px] font-[900] italic text-[#F24822] leading-none mb-1">70%</div>
+                                <p className="text-[9px] font-black text-[#1C1C1E] leading-tight uppercase mt-1">最低利用率<br/>(42時間以上 / 四半期)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Column Headers */}
+                    <div className="flex gap-4 mb-4 sharp-text pl-[196px] shrink-0">
+                        <div className="flex-1 text-center py-2.5 bg-[#FFDD33] border-2 border-[#1C1C1E] rounded-xl font-black italic uppercase text-[12px] tracking-widest shadow-[4px_4px_0px_rgba(28,28,30,0.1)]">
+                            戦略立案部門 (CSM)
+                        </div>
+                        <div className="w-8"></div>
+                        <div className="flex-1 text-center py-2.5 bg-[#47D1C4] border-2 border-[#1C1C1E] rounded-xl font-black italic uppercase text-[12px] tracking-widest shadow-[4px_4px_0px_rgba(28,28,30,0.1)]">
+                            技術実行部門 (PS)
+                        </div>
+                    </div>
+
+                    {/* Matrix Rows */}
+                    <div className="fade-in flex-1">
+                        {matrixData.map((row, idx) => (
+                            <AccountabilityRow key={idx} {...row} />
+                        ))}
+                    </div>
+
+                    {/* Strategic Boundary Alert */}
+                    <div className="mt-4 p-5 bg-[#1C1C1E] text-white rounded-[2rem] border-4 border-[#FFDD33] shadow-lg relative overflow-hidden sharp-text shrink-0">
+                        <div className="relative z-10 flex items-center gap-6">
+                            <div className="text-[22px] font-[900] italic uppercase text-[#FFDD33] shrink-0">戦略的境界線</div>
+                            <div className="w-[2px] h-10 bg-white/20"></div>
+                            <p className="text-[14px] font-bold leading-relaxed opacity-95">
+                                MOSTは<span className="text-[#FFDD33]">「簡易版TAM」ではありません</span>。戦略立案、アカウントビジョン、およびエンゲージメントの調整は、CSMが単独で所有・責任を負います。
+                            </p>
+                        </div>
+                        <div className="absolute -bottom-8 -right-4 text-[100px] font-black italic uppercase text-white/[0.03] pointer-events-none select-none">
+                            OVERSIGHT
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex justify-between items-center opacity-40 pt-4 border-t-2 border-[#1C1C1E]/10 sharp-text mt-4 shrink-0">
+                        <div className="text-[#1C1C1E] font-black italic uppercase text-[10px] tracking-[0.2em]">アカウンタビリティ • パートナーシップ • スケール</div>
+                        <div className="text-[#1C1C1E] font-black italic uppercase text-[10px] tracking-[0.2em]">© FY26 Miro Professional Services</div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
