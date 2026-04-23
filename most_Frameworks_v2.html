@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miro MOST - ストラテジック・ハブ</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+            background-color: #F4F4F4;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #root-container {
+            width: 1280px;
+            height: 720px;
+            transform-origin: center center;
+            flex-shrink: 0;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .canvas-bg {
+            width: 100%;
+            height: 100%;
+            background-color: #FFFFFF;
+            background-image: radial-gradient(#EAEAEA 1.5px, transparent 0);
+            background-size: 24px 24px;
+            display: flex;
+            flex-direction: column; 
+            border: 4px solid #FFDD33;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sharp-text {
+            transform: none !important;
+            backface-visibility: hidden;
+        }
+
+        .miro-highlight {
+            background-color: #FFDD33;
+            padding: 2px 12px;
+            border-radius: 8px;
+            display: inline-block;
+            box-shadow: 4px 4px 0px #1C1C1E;
+        }
+
+        .blueprint-card {
+            background-color: #FFFFFF;
+            border: 4px solid #1C1C1E;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .blueprint-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 0px 0px #1C1C1E;
+        }
+
+        .blueprint-card.active {
+            background-color: #1C1C1E;
+            color: white;
+            box-shadow: 0 8px 0px 0px #FFDD33;
+        }
+
+        .outcome-tag {
+            background-color: #FFDD33;
+            color: #1C1C1E;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 900;
+            font-style: italic;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            box-shadow: 2px 2px 0px #1C1C1E;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .animate-slide {
+            animation: slideIn 0.4s ease-out forwards;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #1C1C1E;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root-container">
+        <div id="root" style="width: 100%; height: 100%;"></div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const useAutoScaler = () => {
+            useEffect(() => {
+                const scaler = () => {
+                    const container = document.getElementById('root-container');
+                    if (container) {
+                        const scale = Math.min(window.innerWidth / 1320, window.innerHeight / 760);
+                        container.style.transform = `scale(${scale})`;
+                    }
+                };
+                window.addEventListener('resize', scaler);
+                scaler();
+                return () => window.removeEventListener('resize', scaler);
+            }, []);
+        };
+
+        const Icon = ({ name, color = "currentColor", size = 24 }) => {
+            const icons = {
+                tech: <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />,
+                product: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />,
+                pm: (
+                    <React.Fragment>
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </React.Fragment>
+                ),
+                ai: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
+                migrate: <path d="M13 17l5-5-5-5M6 17l5-5-5-5" />,
+                modern: (
+                    <React.Fragment>
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </React.Fragment>
+                ),
+                chevron: <polyline points="9 18 15 12 9 6" />
+            };
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        const FRAMEWORKS = [
+            {
+                id: 1,
+                title: "技術基盤とデータガバナンス",
+                subtitle: "TECHNICAL FOUNDATIONS & GOVERNANCE",
+                focus: "業務効率化とリスク軽減",
+                icon: "tech",
+                color: "#FFDD33",
+                impact: "分散したチームを単一の管理されたエコシステムに統合し、ツールの乱立を防ぎ、アーキテクチャの負債を解消します。",
+                outcomes: [
+                    "ワークスペースのコストとセキュリティ・コンプライアンスを100%可視化。",
+                    "自動化・標準化されたプロジェクトテンプレートにより、オンボーディングを40%効率化。",
+                    "アドホックな環境を単一のセキュアなハブに統合し、管理コストを削減。",
+                    "将来を見据えた権限・ロール構造により、持続可能な拡張性を確保。"
+                ],
+                workstreams: [
+                    { name: "ワークスペースの統合と整理", hrs: 45 },
+                    { name: "ガバナンスフレームワークと標準化", hrs: 30 },
+                    { name: "部門間プロセス向けカスタムテンプレート", hrs: 50 },
+                    { name: "システム連携（Confluence, Slack, Google Driveなど）", hrs: 35 },
+                    { name: "チェンジマネジメントと展開支援", hrs: 30 },
+                    { name: "四半期ごとの利用状況・ガバナンスレビュー", hrs: 50 }
+                ]
+            },
+            {
+                id: 2,
+                title: "プロダクト開発の最適化",
+                subtitle: "PRODUCT & ENGINEERING OPTIMIZATION",
+                focus: "サイクルタイムとデリバリーの信頼性向上",
+                icon: "product",
+                color: "#867AFF",
+                impact: "セレモニーやデータ同期を自動化し、ソフトウェア開発ライフサイクルから手作業による摩擦を排除します。",
+                outcomes: [
+                    "JiraやAzure DevOpsとの高精度な同期により、二重入力の手間を解消。",
+                    "再現可能かつ自動化された依存関係ボードにより、PIプランニングを数日から数時間へ短縮。",
+                    "リアルタイムに更新されるシステム構成図ライブラリを共有し、アーキテクチャの連携を強化。",
+                    "AIのインサイトを活用してチーム間のブロッカーを特定・排除し、サイクルタイムを改善。"
+                ],
+                workstreams: [
+                    { name: "Jira / Azure DevOps 連携の整理", hrs: 35 },
+                    { name: "システムアーキテクチャのブループリント作成", hrs: 55 },
+                    { name: "統合アジャイルセレモニー・フレームワーク", hrs: 40 },
+                    { name: "エンジニアリングインサイト向けAIアシスタント", hrs: 30 },
+                    { name: "四半期ごとのプランニング支援", hrs: 60 },
+                    { name: "チェンジマネジメントと定着化計画", hrs: 20 }
+                ]
+            },
+            {
+                id: 3,
+                title: "プロジェクト管理と戦略実行",
+                subtitle: "PROJECT MANAGEMENT & STRATEGY",
+                focus: "経営層の可視化と優先順位のすり合わせ",
+                icon: "pm",
+                color: "#47D1C4",
+                impact: "経営戦略と日々の業務を直結させ、すべてのリソースがトップラインの目標に合致するようにします。",
+                outcomes: [
+                    "経営層にリアルタイムのポートフォリオダッシュボードを提供（手動でのスライド作成不要）。",
+                    "全部門でロードマップの可視化を標準化し、一貫したレポーティングを実現。",
+                    "プロジェクトマネージャー向けに、AI搭載のボード要約機能でステータス報告を自動化。",
+                    "戦略的取り組みに対するリソースの制約を可視化し、迅速な優先順位付けを可能に。"
+                ],
+                workstreams: [
+                    { name: "ポートフォリオ管理ボードの設計", hrs: 40 },
+                    { name: "プロダクト・運用向けロードマップテンプレート", hrs: 30 },
+                    { name: "ステータス報告のAI自動化フロー構築", hrs: 35 },
+                    { name: "エグゼクティブ・ダッシュボード開発", hrs: 40 },
+                    { name: "月次ポートフォリオ運用コーチング", hrs: 70 },
+                    { name: "社内コミュニケーションと定着支援", hrs: 25 }
+                ]
+            },
+            {
+                id: 4,
+                title: "AIファースト・ワークフロー",
+                subtitle: "AI-FIRST WORKFLOW ACCELERATION",
+                focus: "生産性向上と高ROIな自動化",
+                icon: "ai",
+                color: "#CE70FC",
+                impact: "Miro内で安全にAIを導入し、膨大なデータの統合や反復的なリサーチ業務を自動化できるようチームを支援します。",
+                outcomes: [
+                    "リサーチ専用のカスタムAI「アシスタント」により、データ統合の時間を60%削減。",
+                    "AIによる会議の要約とアクションログにより、意思決定を迅速化。",
+                    "価値の高いすべてのテンプレートにAIを組み込み、組織の将来への適応力を強化。",
+                    "散在する数百の付箋から、実用的なインサイトの抽出を自動化。"
+                ],
+                workstreams: [
+                    { name: "AI導入準備アセスメント", hrs: 20 },
+                    { name: "主要ワークフロー向けAIアシスタントの構築", hrs: 50 },
+                    { name: "4つのAI搭載主要テンプレートの作成", hrs: 40 },
+                    { name: "JiraやSlackとのAIフロー連携", hrs: 45 },
+                    { name: "AI活用推進・トレーニングプログラム", hrs: 35 },
+                    { name: "四半期ごとの効果測定と最適化サイクル", hrs: 50 }
+                ]
+            },
+            {
+                id: 5,
+                title: "プラットフォーム移行と定着",
+                subtitle: "PLATFORM MIGRATION & NEW WAYS",
+                focus: "シームレスな移行とユーザー定着率の向上",
+                icon: "migrate",
+                color: "#F24822",
+                impact: "コンテンツの移行と同時にワークフローを刷新し、ツール移行時のダウンタイムや生産性低下を最小限に抑えます。",
+                outcomes: [
+                    "MuralやLucidからのビジネス重要資産の完全な（ロスゼロ）移行を保証。",
+                    "過去の慣習を尊重したカスタマイズされたオンボーディングにより、初日からの定着率を向上。",
+                    "移行されたボードを元のバージョンよりも2倍使いやすく再設計・最適化。",
+                    "初日から新しい環境での無秩序な拡大を防ぐ、明確なガバナンスモデルを確立。"
+                ],
+                workstreams: [
+                    { name: "移行アセスメントとワークスペースの設計", hrs: 40 },
+                    { name: "Mural / Lucid 移行の技術サポート", hrs: 60 },
+                    { name: "価値の高いボードの再構築・最適化", hrs: 55 },
+                    { name: "主要インテグレーションのセットアップ", hrs: 30 },
+                    { name: "チェンジマネジメントと移行コミュニケーション", hrs: 20 },
+                    { name: "定着状況のモニタリングと四半期ごとの最適化", hrs: 35 }
+                ]
+            },
+            {
+                id: 6,
+                title: "エンタープライズ統合",
+                subtitle: "ENTERPRISE CONSOLIDATION",
+                focus: "標準化と組織文化の変革",
+                icon: "modern",
+                color: "#050038",
+                impact: "再利用可能な働き方のライブラリを構築し、数千人のユーザー全体に世界水準のコラボレーション・プラクティスを展開します。",
+                outcomes: [
+                    "分散したエンタープライズ環境を統合し、シャドーITのリスクを排除。",
+                    "コラボレーションの継続的な成長を支える持続可能な「CoE」組織を設立。",
+                    "標準化されたブループリントやガイドのライブラリにより、部門間の摩擦を軽減。",
+                    "データに基づく体系的なイネーブルメントプログラムを通じて、組織文化を変革。"
+                ],
+                workstreams: [
+                    { name: "分断された環境の全社統合", hrs: 45 },
+                    { name: "ID・アクセス・管理者運用モデルの確立", hrs: 20 },
+                    { name: "Microsoft・Atlassianエコシステムとの連携", hrs: 45 },
+                    { name: "ユースケース設計とカスタムテンプレート開発", hrs: 80 },
+                    { name: "ポートフォリオ・部門間可視化レイヤー構築", hrs: 25 },
+                    { name: "全社規模のイネーブルメント・プログラム実施", hrs: 50 }
+                ]
+            }
+        ];
+
+        const App = () => {
+            useAutoScaler();
+            const [selectedId, setSelectedId] = useState(1);
+            const activeData = FRAMEWORKS.find(f => f.id === selectedId);
+
+            return (
+                <div className="canvas-bg select-none">
+                    {/* Header Section */}
+                    <div className="h-[110px] px-12 flex items-end justify-between pb-3 sharp-text shrink-0">
+                        <div>
+                            <div className="flex items-center gap-4 mb-1">
+                                <span className="bg-[#1C1C1E] text-[#FFDD33] px-3 py-0.5 text-[9px] font-black uppercase tracking-[0.3em] rounded border border-[#FFDD33]/20">MOST STRATEGIC HUB</span>
+                                <div className="h-[1px] w-16 bg-[#1C1C1E]/10"></div>
+                            </div>
+                            <h1 className="text-[46px] font-[900] italic uppercase leading-[1.1] text-[#1C1C1E] tracking-tighter">
+                                Miroの価値を<span className="miro-highlight">最大化</span>する
+                            </h1>
+                        </div>
+                        <div className="text-right pb-1">
+                            <p className="text-[10px] font-black text-[#1C1C1E]/40 uppercase tracking-widest mb-1">イノベーションを成功に導く実証済みフレームワーク</p>
+                            <div className="flex justify-end">
+                                <div className="h-[3px] w-12 bg-[#FFDD33] rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Content Area */}
+                    <div className="flex-1 px-12 pb-6 flex gap-6 overflow-hidden">
+                        
+                        {/* LEFT NAV: Framework Cards */}
+                        <div className="w-[360px] space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+                            {FRAMEWORKS.map((f) => (
+                                <div 
+                                    key={f.id}
+                                    onClick={() => setSelectedId(f.id)}
+                                    className={`blueprint-card rounded-xl p-3.5 flex items-center gap-4 ${selectedId === f.id ? 'active' : ''}`}
+                                >
+                                    <div 
+                                        className={`w-9 h-9 rounded-lg flex items-center justify-center border-2 border-[#1C1C1E] shrink-0 shadow-[2px_2px_0px_#1C1C1E]`}
+                                        style={{ 
+                                            backgroundColor: selectedId === f.id ? f.color : '#FFFFFF' 
+                                        }}
+                                    >
+                                        <Icon 
+                                            name={f.icon} 
+                                            color={selectedId === f.id && (f.id === 6) ? "#FFDD33" : "#1C1C1E"} 
+                                            size={20} 
+                                        />
+                                    </div>
+                                    <div className="sharp-text">
+                                        <h3 className="text-[12px] font-black leading-tight tracking-tight">{f.title}</h3>
+                                        <p className={`text-[7.5px] font-black tracking-widest leading-none mt-1.5 ${selectedId === f.id ? 'text-[#FFDD33]' : 'text-[#1C1C1E]/40]'}`}>
+                                            {f.subtitle}
+                                        </p>
+                                    </div>
+                                    <div className="ml-auto opacity-30">
+                                        <Icon name="chevron" size={12} color={selectedId === f.id ? "#FFFFFF" : "#1C1C1E"} />
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            <div className="mt-4 p-4 bg-[#FFDD33] rounded-xl border-4 border-[#1C1C1E] shadow-[4px_4px_0px_#1C1C1E]">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest mb-1.5 text-[#1C1C1E]">戦略のヒント</h4>
+                                <p className="text-[11px] font-bold leading-tight text-[#1C1C1E]/80">
+                                    各ブループリントのワークストリームを組み合わせることで、優先課題に合わせたカスタムロードマップを作成できます。
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* RIGHT CONTENT: Drill-down View */}
+                        <div className="flex-1 bg-white border-4 border-[#1C1C1E] rounded-[2rem] p-7 flex flex-col relative overflow-hidden animate-slide" key={selectedId}>
+                            
+                            {/* Visual Background Accent */}
+                            <div className="absolute top-0 right-0 p-6 opacity-[0.03] pointer-events-none">
+                                <Icon name={activeData.icon} size={280} color="#1C1C1E" />
+                            </div>
+
+                            <div className="flex justify-between items-start mb-4 relative z-10 shrink-0">
+                                <div className="max-w-[85%]">
+                                    <h2 className="text-[28px] font-[900] leading-tight tracking-tight mb-3 text-[#1C1C1E]">
+                                        {activeData.title}
+                                    </h2>
+                                    <p className="text-[13px] font-bold text-[#1C1C1E] leading-relaxed bg-[#F4F4F4] p-3 border-l-4 border-[#FFDD33] rounded-r-lg">
+                                        「{activeData.impact}」
+                                    </p>
+                                </div>
+                                <div className="outcome-tag text-[9px]">戦略プラン 0{activeData.id}</div>
+                            </div>
+
+                            <div className="grid grid-cols-12 gap-6 flex-1 relative z-10 overflow-hidden">
+                                {/* Outcomes Section */}
+                                <div className="col-span-5 flex flex-col overflow-hidden h-full">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1C1C1E]/50 mb-3 shrink-0">戦略的成果 (Strategic Outcomes)</h4>
+                                    <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-4">
+                                        {activeData.outcomes.map((o, idx) => (
+                                            <div key={idx} className="flex gap-3 items-start group">
+                                                <div className="w-5 h-5 rounded bg-[#1C1C1E] flex items-center justify-center shrink-0 mt-0.5">
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFDD33" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                </div>
+                                                <p className="text-[12px] font-bold text-[#1C1C1E]/80 leading-relaxed">{o}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Workstreams Section */}
+                                <div className="col-span-7 flex flex-col overflow-hidden h-full">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1C1C1E]/50 mb-3 shrink-0">重点投資領域 (Investment Areas)</h4>
+                                    <div className="space-y-2 overflow-y-auto pr-3 custom-scrollbar flex-1 pb-2">
+                                        {activeData.workstreams.map((w, idx) => (
+                                            <div key={idx} className="flex justify-between items-center bg-[#F9F9F9] border-2 border-[#1C1C1E]/5 p-2.5 rounded-xl hover:border-[#1C1C1E] transition-all">
+                                                <span className="text-[11px] font-black tracking-tight text-[#1C1C1E]/80">{w.name}</span>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <span className="bg-[#1C1C1E] text-[#FFDD33] px-2 py-0.5 rounded text-[10px] font-black italic">{w.hrs} 時間</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-auto pt-3 border-t-4 border-[#1C1C1E] flex flex-col shrink-0">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black tracking-widest text-[#1C1C1E]/50 mb-0.5">戦略的投資の合計</span>
+                                                <span className="text-[11px] font-black tracking-widest text-[#1C1C1E]">四半期ごとの割り当て</span>
+                                            </div>
+                                            <span className="text-2xl font-[900] italic text-[#1C1C1E]">240 時間</span>
+                                        </div>
+                                        <p className="text-[9px] font-bold text-[#1C1C1E]/50 mt-1.5 leading-tight">
+                                            ※記載されている時間は目安であり、お客様のニーズ、複雑さ、優先順位によって変動する場合があります。
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bottom Utility Bar */}
+                    <div className="h-[40px] px-12 flex justify-between items-center opacity-30 pointer-events-none sharp-text">
+                        <div className="text-[#1C1C1E] font-black uppercase text-[10px] tracking-[0.2em]">卓越性 - スピード - インパクト</div>
+                        <div className="flex items-center gap-6">
+                            <div className="text-[#1C1C1E] font-black italic uppercase text-[10px] tracking-[0.2em]">© MIRO PROFESSIONAL SERVICES</div>
+                            <div className="w-12 h-[3px] bg-[#1C1C1E] rounded-full"></div>
+                        </div>
+                    </div>
+
+                    {/* Big Watermark */}
+                    <div className="absolute -bottom-16 -right-16 text-[280px] font-[900] italic uppercase text-[#1C1C1E]/[0.02] tracking-tighter pointer-events-none">
+                        MOST
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
