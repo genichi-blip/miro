@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOST ポストセールス・タイムライン</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+            background-color: #FFFFFF;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #root {
+            width: 1280px;
+            height: 720px;
+            transform-origin: center center;
+            flex-shrink: 0;
+            position: absolute;
+        }
+
+        .canvas-bg {
+            width: 1280px;
+            height: 720px;
+            background-color: #FFFFFF;
+            background-image: radial-gradient(#EAEAEA 1.5px, transparent 0);
+            background-size: 24px 24px;
+            display: flex;
+            flex-direction: column; 
+            border: 4px solid #1C1C1E;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sharp-text {
+            -webkit-font-smoothing: antialiased;
+            transform: none !important;
+            position: relative;
+            z-index: 50;
+        }
+
+        .miro-header {
+            font-weight: 900;
+            font-style: italic;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+
+        .timeline-line {
+            position: absolute;
+            bottom: 120px;
+            left: 80px;
+            right: 80px;
+            height: 4px;
+            background: #1C1C1E15;
+            border-radius: 2px;
+            z-index: 10;
+        }
+
+        .timeline-progress {
+            position: absolute;
+            bottom: 120px;
+            left: 80px;
+            height: 4px;
+            background: #1C1C1E;
+            border-radius: 2px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 11;
+        }
+
+        .milestone-node {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .milestone-active {
+            background-color: #FFDD33 !important;
+            border-color: #1C1C1E !important;
+            transform: scale(1.3);
+            box-shadow: 0 0 0 6px white, 0 0 0 10px #1C1C1E;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.6); opacity: 0.8; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        .pulse::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border: 2px solid #FFDD33;
+            border-radius: 50%;
+            animation: pulse-ring 2.5s infinite;
+        }
+
+        .stage-transition {
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const useAutoScaler = () => {
+            useEffect(() => {
+                const scaler = () => {
+                    const root = document.getElementById('root');
+                    if (root) {
+                        const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+                        root.style.transform = `scale(${scale})`;
+                    }
+                };
+                window.addEventListener('resize', scaler);
+                scaler();
+                return () => window.removeEventListener('resize', scaler);
+            }, []);
+        };
+
+        const STEPS = [
+            { 
+                id: 0, 
+                tag: "アクティベーション", 
+                title: "社内キックオフ", 
+                owner: "営業 → プロフェッショナルサービス", 
+                color: "#47D1C4", 
+                desc: "アカウントチームから弊社の専門家へお客様の戦略的目標を引き継ぎ、技術的な導入をスムーズに開始します。", 
+                icon: "M20 6L9 17l-5-5",
+                matters: "契約および契約統合のデータを事前に準備することで、初日から迅速なプロジェクト始動を実現します。",
+                tip: "社内の「MOST推進リーダー（承認者）」を早期に選出することをお勧めします。作業リクエストの承認権限を持つリーダーが理想的です。"
+            },
+            { 
+                id: 1, 
+                tag: "可視化", 
+                title: "ブループリントの展開", 
+                owner: "プロフェッショナルサービス", 
+                color: "#867AFF", 
+                desc: "お客様専用の「MOSTブループリント」をMiro上に構築します。これはプロジェクトの進捗や成果物を24時間いつでも確認できる生きたダッシュボードです。", 
+                icon: "M3 3h18v18H3V3zM3 9h18M9 3v18",
+                matters: "ステータス確認の会議を削減します。すべてのテンプレート、決定事項、残り時間はここでリアルタイムに追跡されます。",
+                tip: "このボードをブックマークしてください！チーム向けに作成したすべてのカスタム成果物を格納する永続的なライブラリとして機能します。"
+            },
+            { 
+                id: 2, 
+                tag: "戦略立案", 
+                title: "戦略のすり合わせ", 
+                owner: "担当CSM", 
+                color: "#FFDD33", 
+                desc: "担当CSMが四半期の優先事項を設定する会議を主導し、お客様の最大のビジネス課題と保有する60時間をマッピングします。", 
+                icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2",
+                matters: "専門家のすべての稼働時間が、経営層の優先事項やROI指標に直接結びつくことを保証します。",
+                tip: "「ウィッシュリスト（要望リスト）」をご用意ください。今四半期で全てを実現できなくても、12ヶ月のビジョンを描くことで初期段階の最適化に役立ちます。"
+            },
+            { 
+                id: 3, 
+                tag: "要件受付", 
+                title: "支援リクエスト", 
+                owner: "お客様", 
+                color: "#FF8CDE", 
+                desc: "承認されたご担当者様から作業リクエストを提出していただきます。お客様が課題を定義し、弊社がソリューションを設計します。", 
+                icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z",
+                matters: "構造化された受付プロセスにより、「5営業日以内のアサイン」というSLAが適用され、特定の課題に最適なスペシャリストが確実に配置されます。",
+                tip: "「タスクよりも成果」を意識してください。テンプレートを要求するのではなく、加速させたいビジネスプロセスを共有してください。"
+            },
+            { 
+                id: 4, 
+                tag: "リソース手配", 
+                title: "専門家のアサイン", 
+                owner: "運用マネージャー", 
+                color: "#2AC7FF", 
+                desc: "「最適な専門家を、最適なタイミングで」のモデルに基づき、導入、技術、またはイノベーションの各領域のスペシャリストをリクエストにマッチングします。", 
+                icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+                matters: "一人のスキルセットに制限されることはありません。連携にはその専門家、プロセス設計にはアーキテクトと、専門性の高い人材をアサインします。",
+                tip: "多様な専門家との連携を想定してください。Jiraの設定ではテクニカルアーキテクト、ワークショップ設計ではイノベーションアーキテクトと共に作業する場合があります。"
+            },
+            { 
+                id: 5, 
+                tag: "デリバリー", 
+                title: "専門家による実行", 
+                owner: "アサインされた専門家", 
+                color: "#47D1C4", 
+                desc: "デリバリーの開始です。お客様のMiro環境で反復的に作業を行い、ワークフローの構築、設定、最適化を進めます。", 
+                icon: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+                matters: "社内チームから設計や設定の負担を取り除くことで、価値実現までの時間（Time-to-Value）を短縮します。",
+                tip: "ぜひ一緒にご参加ください！Miroボード上のドラフトに対するフィードバックが早いほど、毎週より多くの成果物を提供できます。"
+            },
+            { 
+                id: 6, 
+                tag: "成果確認", 
+                title: "四半期レビュー", 
+                owner: "担当CSM", 
+                color: "#FFDD33", 
+                desc: "成果を振り返り、消費時間を分析した上で、次四半期に向けてリセットします。（※未使用時間の繰り越しは行われません）", 
+                icon: "M12 1v22M1 12h22",
+                matters: "サービスをお客様の成長に合わせて進化させます。優先事項の変化に応じて、私たちのデリバリーモデルも柔軟に対応します。",
+                tip: "環境を最適化しましょう！時間が余っている場合は、アカウント構造の見直しやチームの統合を優先し、管理の煩雑化を防ぎます。"
+            }
+        ];
+
+        const App = () => {
+            useAutoScaler();
+            const [active, setActive] = useState(0);
+
+            const progressWidth = (active / (STEPS.length - 1)) * 100;
+
+            return (
+                <div className="canvas-bg select-none">
+                    {/* Header */}
+                    <div className="h-[120px] px-12 pt-10 flex justify-between items-start">
+                        <div className="sharp-text">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="bg-[#1C1C1E] text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded">カスタマーサクセス・ロードマップ</span>
+                                <div className="h-px w-20 bg-[#1C1C1E]/20"></div>
+                            </div>
+                            <h1 className="miro-header text-[54px] text-[#1C1C1E]">
+                                <span className="bg-[#FFDD33] px-3 rounded-xl shadow-[4px_4px_0px_#1C1C1E] mr-2">MOST</span> エクスペリエンス
+                            </h1>
+                        </div>
+                        <div className="text-right sharp-text">
+                            <p className="text-[12px] font-black text-[#1C1C1E]/40 uppercase tracking-widest">最適化された実行プロセス</p>
+                            <p className="text-[18px] font-bold italic text-[#1C1C1E] mt-1">60時間 / 四半期</p>
+                        </div>
+                    </div>
+
+                    {/* Main Stage */}
+                    <div className="flex-1 flex px-20 items-center justify-center">
+                        <div key={active} className="stage-transition grid grid-cols-2 gap-12 items-center w-full max-w-[1100px]">
+                            {/* Visual Asset Container */}
+                            <div className="relative h-[360px] rounded-[3rem] border-4 border-[#1C1C1E] bg-white overflow-hidden shadow-[12px_12px_0px_#1C1C1E]">
+                                <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 30% 30%, ${STEPS[active].color}, transparent)` }}></div>
+                                <div className="flex h-full items-center justify-center flex-col p-12 text-center">
+                                    <div className="w-24 h-24 mb-6 rounded-3xl flex items-center justify-center shadow-[6px_6px_0px_#1C1C1E]" style={{ backgroundColor: STEPS[active].color }}>
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d={STEPS[active].icon} />
+                                        </svg>
+                                    </div>
+                                    <span className="text-[12px] font-black tracking-widest text-[#1C1C1E]/40 mb-2">{STEPS[active].tag} フェーズ</span>
+                                    <h2 className="miro-header text-[42px] text-[#1C1C1E]">{STEPS[active].title}</h2>
+                                </div>
+                                <div className="absolute top-6 right-6">
+                                    <span className="bg-[#1C1C1E] text-white px-4 py-2 rounded-xl text-[11px] font-bold italic">進行担当: {STEPS[active].owner}</span>
+                                </div>
+                            </div>
+
+                            {/* Content Details */}
+                            <div className="sharp-text pl-6">
+                                <p className="text-[24px] font-bold leading-relaxed text-[#1C1C1E] mb-8">
+                                    「{STEPS[active].desc}」
+                                </p>
+                                
+                                <div className="space-y-6">
+                                    <div className="flex items-start gap-4 group">
+                                        <div className="w-10 h-10 shrink-0 rounded-xl bg-[#1C1C1E] text-[#FFDD33] flex items-center justify-center font-black shadow-[3px_3px_0px_#47D1C4]">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                        </div>
+                                        <div className="flex-1 border-b-2 border-[#1C1C1E]/10 pb-4">
+                                            <p className="text-[11px] font-black uppercase tracking-widest text-[#1C1C1E]/40 mb-1">もたらす価値 (The Impact)</p>
+                                            <p className="text-[14px] font-bold text-[#1C1C1E]/80 leading-relaxed">
+                                                {STEPS[active].matters}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4 group">
+                                        <div className="w-10 h-10 shrink-0 rounded-xl bg-[#FFDD33] text-[#1C1C1E] flex items-center justify-center font-black shadow-[3px_3px_0px_#1C1C1E]">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[11px] font-black uppercase tracking-widest text-[#1C1C1E]/40 mb-1">専門家からのアドバイス (Recommendation)</p>
+                                            <p className="text-[14px] font-bold text-[#1C1C1E]/80 leading-relaxed">
+                                                {STEPS[active].tip}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Timeline Navigation Axis */}
+                    <div className="h-[180px] w-full px-20 relative flex items-center">
+                        <div className="timeline-line"></div>
+                        <div className="timeline-progress" style={{ width: `calc(${progressWidth}% - 0px)` }}></div>
+                        
+                        <div className="absolute inset-0 px-20 flex justify-between items-center z-20">
+                            {STEPS.map((step) => (
+                                <div 
+                                    key={step.id} 
+                                    onClick={() => setActive(step.id)}
+                                    className="flex flex-col items-center gap-4 relative group"
+                                >
+                                    <div className={`w-6 h-6 rounded-full border-4 border-white bg-white shadow-md milestone-node 
+                                        ${active === step.id ? 'milestone-active pulse' : 'bg-[#D1D1D1] hover:bg-[#1C1C1E]'}`}
+                                    ></div>
+                                    <div className={`absolute top-10 flex flex-col items-center transition-all duration-300 ${active === step.id ? 'opacity-100 translate-y-0' : 'opacity-40 -translate-y-2 group-hover:opacity-80'}`}>
+                                        <span className="text-[10px] font-black uppercase tracking-tighter text-[#1C1C1E] mb-1">Step 0{step.id}</span>
+                                        <span className="text-[12px] font-bold whitespace-nowrap text-[#1C1C1E]">{step.title}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Branding Watermark */}
+                    <div className="absolute -bottom-10 -right-10 text-[200px] font-[900] italic uppercase text-[#1C1C1E]/[0.02] tracking-tighter pointer-events-none select-none">
+                        MIRO
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
